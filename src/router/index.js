@@ -1,29 +1,53 @@
-import Vue from 'vue'
-import VueRouter from 'vue-router'
-import Home from '../views/Home.vue'
+import Vue from "vue";
+import VueRouter from "vue-router";
 
-Vue.use(VueRouter)
+Vue.use(VueRouter);
 
 const routes = [
-  {
-    path: '/',
-    name: 'Home',
-    component: Home
-  },
-  {
-    path: '/about',
-    name: 'About',
-    // route level code-splitting
-    // this generates a separate chunk (about.[hash].js) for this route
-    // which is lazy-loaded when the route is visited.
-    component: () => import(/* webpackChunkName: "about" */ '../views/About.vue')
-  }
-]
+    {
+        path: "/",
+        name: "Main",
+        component: () => import(/* webpackChunkName: "about" */ "../views/Main.vue")
+    },
+    {
+        path: "/room",
+        name: "Room",
+        component: () => import(/* webpackChunkName: "about" */ "../views/room/Room.vue")
+    },
+    //
+    {
+        path: "/robotRoom",
+        name: "RobotRoom",
+        component: () => import(/* webpackChunkName: "about" */ "../views/room/RobotRoom.vue")
+    },
+    {
+        path: "/myRequest",
+        name: "MyRequest",
+        component: () => import(/* webpackChunkName: "about" */ "../views/detail/MyRequest.vue")
+    },
+    {
+        path: "/friendRequest",
+        name: "FriendRequest",
+        component: () => import(/* webpackChunkName: "about" */ "../views/detail/FriendRequest.vue")
+    },
+
+    {
+        path: "/userInfo",
+        name: "UserInfo",
+        component: () => import(/* webpackChunkName: "about" */ "../views/detail/UserInfo.vue")
+    },
+
+    {
+        path: "/login",
+        name: "Login",
+        component: () => import(/* webpackChunkName: "about" */ "../views/login/Login.vue")
+    },
+];
 
 const router = new VueRouter({
-  mode: 'history',
-  base: process.env.BASE_URL,
-  routes
-})
+    mode: "hash",
+    base: process.env.BASE_URL,
+    routes
+});
 
-export default router
+export default router;
