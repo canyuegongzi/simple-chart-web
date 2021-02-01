@@ -4,7 +4,6 @@
 </template>
 <script>
     import { mapActions, mapMutations, mapState } from 'vuex';
-    import { compare } from './utils/utils';
     import {PubEvent} from "./utils/PubEvent";
     import vueCustomScrollbar from 'vue-custom-scrollbar'
     import "vue-custom-scrollbar/dist/vueScrollbar.css"
@@ -41,7 +40,8 @@
             ...mapActions('app', {
                 connectSocket: "connectSocket",
                 initRobotInfo: "initRobotInfo",
-                getUserFriendList: "getUserFriendList"
+                getUserFriendList: "getUserFriendList",
+                getUserGroupList: "getUserGroupList",
             }),
             async initData() {
                 const data =  window.localStorage.getItem('WS-TOKEN')
@@ -54,9 +54,13 @@
                 if (wsToken && wsToken.token) {
                     this.setCurrentInfo(wsToken)
                     this.connectSocket({userId: wsToken.userId.toString(), deviceType: 'PC'})
-                    const userList = await this.getUserFriendList({userId: wsToken.userId.toString(), deviceType: 'PC'})
-                    console.log(userList)
-                    const robotinfo = await this.initRobotInfo({ userId: wsToken.userId.toString(), userName: wsToken.userName});
+                    Promise.all([
+                        this.getUserFriendList({userId: wsToken.userId.toString(), deviceType: 'PC'}),
+                        this.getUserGroupList({userId: wsToken.userId.toString(), deviceType: 'PC'}),
+                        this.initRobotInfo({ userId: wsToken.userId.toString(), userName: wsToken.userName})
+                    ]).then(res => {
+                        console.log(res);
+                    })
                 }
             }
         },

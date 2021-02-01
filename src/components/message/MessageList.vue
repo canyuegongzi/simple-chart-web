@@ -22,6 +22,7 @@ export default {
             socket: state => state.socket,
             currentInfo: state => state.currentInfo,
             friendList: state => state.friendList,
+            groupList: state => state.groupList,
             homeMessageList: state => state.homeMessageList
         }),
     },
@@ -58,7 +59,7 @@ export default {
             getUserFriendList: "getUserFriendList"
         }),
         async onLoad() {
-            const data = await this.getHomeList()
+            await this.getHomeList()
         },
         async onRefresh() {
             // 清空列表数据
@@ -80,7 +81,8 @@ export default {
             if (!this.friendList.length){
                 return
             }
-            let data = null;
+            let friendMessageData = null;
+            let groupMessageData = null;
             const messageList = [];
             try {
                 const res = await this.$get(IMCenterApi.homeMessageList.url, {
@@ -88,20 +90,32 @@ export default {
                     pageSize: 100,
                     page: 1,
                     time: dayjs().subtract(3, 'days').valueOf()
-                }, IMCenterApi.homeMessageList.server)
-                data = res.data.data.data
-                for (let key in data) {
+                }, IMCenterApi.homeMessageList.server);
+                // 好友消息处理
+                friendMessageData = res.data.data.friendData;
+                groupMessageData = res.data.data.groupData;
+                for (let key in friendMessageData) {
                     const friendInfo = this.friendList.find((item) =>{
                         return item.friendId + '' === key + '';
                     })
-                    const newMessage = {friendId: key, message: {...data[key][0], time: dayjs(data[key][0].createTime).format('YYYY-MM-DD HH:mm:ss')}, friendInfo: friendInfo}
+                    const newMessage = {friendId: key, message: {...friendMessageData[key][0], time: dayjs(friendMessageData[key][0].createTime).format('YYYY-MM-DD HH:mm:ss')}, friendInfo: friendInfo}
                     messageList.push(newMessage)
+                }
+                // 群消息处理
+                for (let key in groupMessageData) {
+                    const groupInfo = this.groupList.find((item) =>{
+                        return item.id + '' === key + '';
+                    })
+                    const newMessage = {friendId: key, message: {...groupMessageData[key][0], time: dayjs(groupMessageData[key][0].createTime).format('YYYY-MM-DD HH:mm:ss')}, friendInfo: {...groupInfo, friendIcon: groupInfo.groupIcon, friendName: groupInfo.groupName}}
+                    console.log(newMessage);
+                    messageList.push(newMessage);
                 }
                 this.setHomeMessageList(messageList);
                 this.loading = false;
                 this.finished = true;
             }catch (e) {
-                data = null
+                console.log(e);
+                friendMessageData = null
                 this.loading = false;
                 this.finished = true;
             }
@@ -112,17 +126,35 @@ export default {
          * @param item
          */
         async clickItem(item) {
-            console.log(item);
-            if (Array.isArray(item.message.unreadHashIds) && item.message.unreadHashIds.length > 0) {
-                this.socket.emit('affirmMessageStatus', {
-                    messageType: 'FRIEND',
-                    messageId: '',
-                    hashId: item.message.unreadHashIds.join(','),
-                    status: '1'
-                })
+            if (item.message.messageType === 'FRIEND') {
+                if (Array.isArray(item.message.unreadHashIds) && item.message.unreadHashIds.length > 0) {
+                    this.socket.emit('affirmMessageStatus', {
+                        messageType: 'FRIEND',
+                        messageId: '',
+                        hashId: item.message.unreadHashIds.join(','),
+                        userId: this.currentInfo.id.toString(),
+                        status: '1'
+                    })
+                }
+                this.setTargetChartObj({type: 'FRIEND', targetInfo: {...item.friendInfo, title: item.friendInfo.friendName, targetId: item.friendInfo.friendId} })
+                this.$router.push('/room')
             }
-            this.setTargetChartObj({type: 'FRIEND', targetInfo: item.friendInfo})
-            this.$router.push('/room')
+            if (item.message.messageType === 'GROUP') {
+                console.log(item);
+                if (Array.isArray(item.message.unreadHashIds) && item.message.unreadHashIds.length > 0) {
+                    this.socket.emit('affirmMessageStatus', {
+                        messageType: 'GROUP',
+                        messageId: '',
+                        groupId: item.friendInfo.id,
+                        userId: this.currentInfo.id.toString(),
+                        hashId: item.message.unreadHashIds.join(','),
+                        status: '1'
+                    })
+                }
+                this.setTargetChartObj({type: 'GROUP', targetInfo: {...item.friendInfo, title: item.friendInfo.groupName, targetId: item.friendInfo.id} })
+                this.$router.push('/groupRoom')
+            }
+
         },
         /**
          * s刷新数据
@@ -132,64 +164,131 @@ export default {
         async refreshMessageList(messageInfo) {
             if (this.$route.name === 'Main') {
                 console.log(messageInfo);
-                let indexNum = -1;
-                const currentMessage = this.homeMessageList.find((item, index) =>  {
-                    if (item.friendId + '' === messageInfo.message.userId + '') {
-                        indexNum = index;
-                    }
-                    return item.friendId + '' === messageInfo.message.userId + ''
-                });
-                if (currentMessage) {
-                    console.log(currentMessage);
-                    const newTempMessageInfo = {
-                        ...currentMessage.message,
-                        content: messageInfo.message.content,
-                        createTime: messageInfo.message.createTime,
-                        hashId: messageInfo.message.hashId,
-                        id:  messageInfo.message.hashId,
-                        messageTotal: currentMessage.message.messageTotal + 1,
-                        status: "0",
-                        time: dayjs(messageInfo.message.createTime).format('YYYY-MM-DD HH:mm:ss'),
-                        type: messageInfo.message.type,
-                        unreadHashIds: (() => {
-                            const unreadHashIds = [...currentMessage.message.unreadHashIds];
-                            unreadHashIds.push(messageInfo.message.hashId)
-                            return unreadHashIds
-                        })(),
-                        unreadMessageTotal: currentMessage.message.unreadMessageTotal + 1
-                    }
-                    const list = [...this.homeMessageList];
-                    console.log(indexNum);
-                    list.splice(indexNum, 1, {...currentMessage, message: newTempMessageInfo})
-                    console.log(list);
-                    this.setHomeMessageList(list);
-                    return
+                if (messageInfo.type === 'FRIEND') {
+                    return this.updateFriendMessageList(messageInfo);
                 }
-                const friendInfo = this.friendList.find((item) => {
-                    return item.friendId + '' === messageInfo.message.userId
-                })
-                console.log(friendInfo);
+                if (messageInfo.type === 'GROUP') {
+                    return this.updateGroupMessageList(messageInfo);
+                }
+            }
+        },
+        /**
+         * 好友信息更新
+         * @param messageInfo
+         */
+        updateFriendMessageList(messageInfo) {
+            let indexNum = -1;
+            const currentMessage = this.homeMessageList.find((item, index) =>  {
+                if (item.friendId + '' === messageInfo.message.userId + '') {
+                    indexNum = index;
+                }
+                return item.friendId + '' === messageInfo.message.userId + ''
+            });
+            if (currentMessage) {
                 const newTempMessageInfo = {
+                    ...currentMessage.message,
                     content: messageInfo.message.content,
                     createTime: messageInfo.message.createTime,
                     hashId: messageInfo.message.hashId,
                     id:  messageInfo.message.hashId,
-                    messageTotal: 1,
+                    messageTotal: currentMessage.message.messageTotal + 1,
                     status: "0",
                     time: dayjs(messageInfo.message.createTime).format('YYYY-MM-DD HH:mm:ss'),
                     type: messageInfo.message.type,
-                    unreadHashIds: [messageInfo.message.hashId],
-                    unreadMessageTotal: 1
+                    unreadHashIds: (() => {
+                        const unreadHashIds = [...currentMessage.message.unreadHashIds];
+                        unreadHashIds.push(messageInfo.message.hashId)
+                        return unreadHashIds
+                    })(),
+                    unreadMessageTotal: currentMessage.message.unreadMessageTotal + 1
                 }
-                const list = [...this.homeMessageList]
-                list.unshift({
-                    friendInfo: friendInfo,
-                    message: newTempMessageInfo,
-                    friendId: messageInfo.message.userId
-                })
+                const list = [...this.homeMessageList];
+                list.splice(indexNum, 1, {...currentMessage, message: newTempMessageInfo})
                 this.setHomeMessageList(list);
+                return
             }
+            const friendInfo = this.friendList.find((item) => {
+                return item.friendId + '' === messageInfo.message.userId
+            });
+            const newTempMessageInfo = {
+                content: messageInfo.message.content,
+                createTime: messageInfo.message.createTime,
+                hashId: messageInfo.message.hashId,
+                id:  messageInfo.message.hashId,
+                messageTotal: 1,
+                status: "0",
+                time: dayjs(messageInfo.message.createTime).format('YYYY-MM-DD HH:mm:ss'),
+                type: messageInfo.message.type,
+                unreadHashIds: [messageInfo.message.hashId],
+                unreadMessageTotal: 1
+            }
+            const list = [...this.homeMessageList]
+            list.unshift({
+                friendInfo: friendInfo,
+                message: newTempMessageInfo,
+                friendId: messageInfo.message.userId
+            })
+            this.setHomeMessageList(list);
+        },
 
+        /**
+         * 更新群组信息
+         * @param messageInfo
+         */
+        updateGroupMessageList(messageInfo) {
+            let indexNum = -1;
+            const currentMessage = this.homeMessageList.find((item, index) =>  {
+                if (item.friendId + '' === messageInfo.message.groupId + '') {
+                    indexNum = index;
+                }
+                return item.friendId + '' === messageInfo.message.groupId + ''
+            });
+            if (currentMessage) {
+                console.log(currentMessage);
+                const newTempMessageInfo = {
+                    ...currentMessage.message,
+                    content: messageInfo.message.content,
+                    createTime: messageInfo.message.createTime,
+                    hashId: messageInfo.message.hashId,
+                    id:  messageInfo.message.hashId,
+                    messageTotal: currentMessage.message.messageTotal + 1,
+                    status: "0",
+                    time: dayjs(messageInfo.message.createTime).format('YYYY-MM-DD HH:mm:ss'),
+                    type: messageInfo.message.type,
+                    unreadHashIds: (() => {
+                        const unreadHashIds = [...currentMessage.message.unreadHashIds];
+                        unreadHashIds.push(messageInfo.message.hashId)
+                        return unreadHashIds
+                    })(),
+                    unreadMessageTotal: currentMessage.message.unreadMessageTotal + 1
+                }
+                const list = [...this.homeMessageList];
+                list.splice(indexNum, 1, {...currentMessage, message: newTempMessageInfo})
+                this.setHomeMessageList(list);
+                return
+            }
+            const friendInfo = this.groupList.find((item) => {
+                return item.id + '' === messageInfo.message.groupId
+            });
+            const newTempMessageInfo = {
+                content: messageInfo.message.content,
+                createTime: messageInfo.message.createTime,
+                hashId: messageInfo.message.hashId,
+                id:  messageInfo.message.hashId,
+                messageTotal: 1,
+                status: "0",
+                time: dayjs(messageInfo.message.createTime).format('YYYY-MM-DD HH:mm:ss'),
+                type: messageInfo.message.type,
+                unreadHashIds: [messageInfo.message.hashId],
+                unreadMessageTotal: 1
+            }
+            const list = [...this.homeMessageList]
+            list.unshift({
+                friendInfo: friendInfo,
+                message: newTempMessageInfo,
+                friendId: messageInfo.message.groupId
+            })
+            this.setHomeMessageList(list);
         }
     },
     async created() {

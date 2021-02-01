@@ -5,7 +5,7 @@
             .message(v-for="item, index in messageList" style="padding: 0 16px;margin: 10px 0px;")
                 div
                     chat-avatar(:userInfo="currentInfo" :currentInfo="item.userInfo" :time="item.time")
-                    div(:class="item.userInfo.userId === currentInfo.userId ? 'current-user-message' : 'other-user-message'")
+                    div(:class="item.userInfo.userId+'' === currentInfo.userId+'' ? 'current-user-message' : 'other-user-message'")
                         .content(v-html="item.content" )
         chart-input(@get:message="getMessageValue")
 </template>

@@ -13,12 +13,13 @@
 <script>
 import {mapActions, mapMutations, mapState} from "vuex";
 import ChartInput from "../../components/room/ChartInput";
-import {IMCenterApi, noticeCenterApi} from "../../utils/apiUrl";
+import {groupCenterApi, IMCenterApi, noticeCenterApi} from "../../utils/apiUrl";
 import ChatAvatar from "../../components/room/ChatAvatar";
-import {FriendMessageInfo} from "../../utils/messageTypes";
+import {FriendMessageInfo, GroupMessageInfo} from "../../utils/messageTypes";
+import {$get} from "../../utils/httpClient";
 
 export default {
-    name: "Room",
+    name: "GroupRoom",
     components: {
         ChartInput,
         ChatAvatar
@@ -50,7 +51,14 @@ export default {
             page: 1,
             targetRoom: '好友',
             userInfoMap: {},
-            total: 0
+            total: 0,
+            groupInfo: {
+                userList: [],
+                groupName: '',
+                groupId: '',
+                groupIcon: ''
+            },
+            memberMap: {},
         }
     },
     methods: {
@@ -81,7 +89,7 @@ export default {
             this.loading = true;
 
 
-            const list = await this.loadFriendMessageList()
+            const list = await this.loadGroupMessageList()
             console.log(list);
             this.messageList = [...list, ...this.messageList]
             this.loading = false;
@@ -103,58 +111,57 @@ export default {
          * @param val
          */
         async getMessageValue(value) {
-            const info = new FriendMessageInfo({
+            const info = new GroupMessageInfo({
                 type: "TEXT",
-                friendId: this.targetChartObj.targetInfo.friendId+'',
+                groupId: this.targetChartObj.targetInfo.targetId,
                 content: value,
                 userId: this.currentInfo.userId+'',
+                targetIds: this.groupInfo.userList.map(item => item.userId).join(',')
             });
-            const tempMessageInfo = {
-                ...info,
-                time: new Date().getTime(),
-                userInfo: {
-                    ...this.currentInfo
-                },
-                success: false
-            }
+            console.log(info);
             if(!info.content){
                 this.$Notify({type: 'waring', message: '消息内容不能为空'});
                 return;
             }
-            if(!info.userId || !info.friendId){
+            if(!info.userId || !info.groupId){
                 this.$Notify({type: 'error', message: '系统异常，即将推出系统'});
                 this.$router.push('/login')
                 return;
             }
             try {
-                const messageResult = await this.$post(noticeCenterApi.emitFriendMessage.url, info, noticeCenterApi.emitFriendMessage.server);
+                const messageResult = await this.$post(noticeCenterApi.emitGroupMessage.url, info, noticeCenterApi.emitGroupMessage.server);
                 console.log(messageResult);
-                tempMessageInfo.success = true
             }catch (e) {
                 console.log(e);
-                tempMessageInfo.success = false
             }
-            this.messageList.push(tempMessageInfo)
+            // this.messageList.push(tempMessageInfo)
             this.total = this.total + 1
         },
         /**
          * 加载点对点聊天消息列表
          */
-        async loadFriendMessageList() {
-            let list = []
+        async loadGroupMessageList() {
+            let list = [];
             try {
-                const res = await this.$get(IMCenterApi.friendMessageList.url, {page: this.page, pageSize: this.pageSize, userId: this.currentInfo.userId, friendId: this.targetChartObj.targetInfo.friendId}, IMCenterApi.friendMessageList.server)
+                const res = await this.$get(IMCenterApi.groupMessageList.url, {page: this.page, pageSize: this.pageSize, userId: this.currentInfo.userId, groupId: this.targetChartObj.targetInfo.targetId}, IMCenterApi.groupMessageList.server)
+                console.log(res);
                 list = res.data.data.data
                 list.forEach((item) => {
-                    item.time = item.createTime
-                    item.userInfo = this.userInfoMap[item.userId]
-                    item.success = true
+                    const userInfo = this.memberMap[item.userId];
+                    item.time = item.createTime;
+                    item.userInfo = {
+                        ...userInfo,
+                        friendName: userInfo.userName,
+                        headerIcon: userInfo.userIcon
+                    };
+                    item.success = true;
                 })
                 console.log(list);
-                this.page++
-                this.total = res.data.data.total
-                list.reverse()
+                this.page++;
+                this.total = res.data.data.total;
+                list.reverse();
             }catch (e) {
+                console.log(e);
                 list = []
             }
             return list
@@ -165,59 +172,77 @@ export default {
          */
         getOneNewMessage(data) {
             console.log('新的消息');
-            console.log(data)
-            if(data.type === 'FRIEND') {
-                const dataObj = {
-                    content: data.message.content,
-                    createTime: data.message.time,
-                    friendId: data.message.friendId,
-                    hashId: data.message.hashId,
-                    id: data.message.hashId,
-                    success: true,
-                    time: data.message.time,
-                    type: data.message.type,
-                    userId: data.message.userId,
-                    userInfo: {
-                        headerIcon: data.message.userInfo.friendIcon,
-                        userId: data.message.userInfo.friendId,
-                        userName: data.message.userInfo.userName,
+            console.log(data);
+            const hashIds = [];
+            if(data.type === 'GROUP') {
+                data.message.forEach(item => {
+                    const userInfo = this.memberMap[item.userId];
+                    if (userInfo) {
+                        const dataObj = {
+                            content: item.content,
+                            createTime: item.createTime,
+                            groupId: item.groupId,
+                            hashId: item.hashId,
+                            id: item.hashId,
+                            success: true,
+                            time: item.createTime,
+                            type: item.type,
+                            userId: userInfo.userId,
+                            userInfo: {
+                                headerIcon: userInfo.userIcon,
+                                userId: userInfo.userId,
+                                userName: userInfo.userName,
+                            }
+                        }
+                        hashIds.push(item.hashId);
+                        this.total = this.total + 1;
+                        this.messageList.push(dataObj)
                     }
 
-                }
+                })
                 this.socket.emit('affirmMessageStatus', {
                     messageType: data.type,
                     messageId: '',
-                    hashId: data.message.hashId,
-                    status: '1'
+                    groupId: this.targetChartObj.targetInfo.targetId,
+                    hashId: hashIds.join(','),
+                    status: '1',
+                    userId: this.currentInfo.userId+''
                 })
-                this.total = this.total + 1;
-                this.messageList.push(dataObj);
+
             }
+        },
+
+        /**
+         * 加载群信息
+         */
+        async getGroupInfo(groupId) {
+            console.log(groupId);
+            try {
+                const userMap = {}
+                const res = await $get(groupCenterApi.groupInfo.url, {id: groupId}, groupCenterApi.groupInfo.server);
+                res.data.userList.forEach(item => {
+                   userMap[item.userId] = {
+                       ...item,
+                       userIcon: item.userIcon || 'http://qiniu.canyuegongzi.xyz/person_timg.jpg'
+                   }
+                })
+                this.memberMap = userMap
+                this.groupInfo = res.data;
+                const list = await this.loadGroupMessageList();
+                console.log(list);
+                this.messageList = list
+            }catch (e) {
+
+            }
+
         }
     },
     async created() {
-        window._globalEvent.listen('newFriendMessage', this.getOneNewMessage)
-        if (this.targetChartObj.type === 'FRIEND') {
-            const userInfoMap = {}
-            userInfoMap[this.currentInfo.userId] = {
-                headerIcon: this.currentInfo.headerIcon,
-                userName: this.currentInfo.name,
-                friendName: this.currentInfo.nick,
-                userId: this.currentInfo.userId,
-            }
-            userInfoMap[this.targetChartObj.targetInfo.friendId] =  {
-                headerIcon: this.targetChartObj.targetInfo.friendIcon,
-                userName: this.targetChartObj.targetInfo.userName,
-                friendName: this.targetChartObj.targetInfo.friendName,
-                userId: this.targetChartObj.targetInfo.friendId,
-            }
-            this.userInfoMap = userInfoMap
-            const list = await this.loadFriendMessageList()
-            this.messageList = list
-        }
+        window._globalEvent.listen('newGroupMessage', this.getOneNewMessage)
+        this.getGroupInfo(this.targetChartObj.targetInfo.targetId);
     },
     beforeDestroy() {
-        window._globalEvent.remove('newFriendMessage', this.getOneNewMessage)
+        window._globalEvent.remove('newGroupMessage', this.getOneNewMessage)
     }
 }
 </script>

@@ -181,11 +181,11 @@ export default {
             }
             try {
                 const res = await this.$post(userCenterApi.request.url, {
-                    "targetId": info.id,
-                    "targetName": info.name,
-                    "targetIcon": "http://qiniu.canyuegongzi.xyz/person_timg.jpg",
-                    "formId": this.currentInfo.userId,
-                    "type": "FRIEND",
+                    targetId: info.id,
+                    targetName: info.name,
+                    targetIcon: "http://qiniu.canyuegongzi.xyz/person_timg.jpg",
+                    formId: this.currentInfo.userId,
+                    type: "FRIEND",
                     note: this.note
                 }, userCenterApi.request.server)
                 console.log(res)

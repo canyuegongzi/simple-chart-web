@@ -74,7 +74,7 @@
              */
             clickItem(item) {
                 console.log(item)
-                this.setTargetChartObj({type: 'FRIEND', targetInfo: item});
+                this.setTargetChartObj({type: 'FRIEND', targetInfo: {...item, title: item.friendName, targetId: item.friendId}});
                 if (item.friendInfo.name !== 'systemRobot') {
                     this.$router.push('/room');
                     return;

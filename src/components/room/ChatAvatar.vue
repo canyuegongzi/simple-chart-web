@@ -1,6 +1,6 @@
 <template lang="pug">
 .container
-    .current-user(v-if="userInfo.userId === currentInfo.userId")
+    .current-user(v-if="userInfo.userId+'' === currentInfo.userId+''")
         van-icon(:name="userInfo.headerIcon" size="32" style="margin-right: 4px;")
         span(class="avatar-name") {{currentInfo.friendName }}
         span(class="avatar-time") {{ _formatTime(time) }}

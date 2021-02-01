@@ -11,7 +11,7 @@
 
 <script>
 import {mapActions, mapMutations, mapState} from "vuex";
-import {bspCenterApi, userCenterApi} from "../../utils/apiUrl";
+import {bspCenterApi, groupCenterApi, userCenterApi} from "../../utils/apiUrl";
 import dayjs from 'dayjs'
 const statusMap = {
     // 未应答
@@ -36,12 +36,19 @@ const statusMap = {
 export default {
     name: "Search",
     components: {},
+    props: {
+        type: {
+            type: String,
+            default: 'FriendList'
+        }
+    },
     computed: {
         ...mapState('app', {
             socket: state => state.socket,
             currentInfo: state => state.currentInfo,
             targetChartObj: state => state.targetChartObj,
             friendList: state => state.friendList,
+            groupList: state => state.groupList,
         }),
         targetName() {
             if (this.targetChartObj && this.targetChartObj.type === 'FRIEND'){
@@ -52,6 +59,11 @@ export default {
         myFriendUserIds() {
             return this.friendList.map(item => {
                 return item.friendId
+            })
+        },
+        myGroupUserIds() {
+            return this.groupList.map(item => {
+                return item.id
             })
         }
     },
@@ -134,6 +146,20 @@ export default {
          * 开始搜索
          */
         async onSearch() {
+            switch (this.type) {
+                case 'FriendList':
+                    return this.searchUserList();
+                case 'GroupList':
+                    return this.searchGroupList();
+                default:
+                    return []
+            }
+        },
+        /**
+         * 用户搜索
+         * @returns {Promise<void>}
+         */
+        async searchUserList() {
             console.log(this.valueStr)
             if (!this.valueStr) {
                 return
@@ -150,6 +176,42 @@ export default {
                 const newList = userList.data.data.data.filter((item) => {
                     return !myFriendUserIds.includes(item.id + '');
                 })
+                this.list = newList;
+                if (!newList.length) {
+                    this.empty = true
+                }
+            }catch (e) {
+                console.log(e)
+                this.list = [];
+                this.empty = true
+            }
+        },
+        /**
+         * 群组搜索
+         * @returns {Promise<void>}
+         */
+        async searchGroupList() {
+            console.log(this.valueStr);
+            console.log('start search group')
+            if (!this.valueStr) {
+                return
+            }
+            try {
+                const params = {
+                    page: 1,
+                    pageSize: 100,
+                    groupName: this.valueStr
+                }
+                const groupData = await this.$get(groupCenterApi.searchGroup.url, params, groupCenterApi.searchGroup.server);
+                groupData.data.forEach((item) => {
+                    item.name = item.groupName
+                })
+                console.log(groupData.data);
+                const myGroupIds = [...this.myFriendUserIds, this.currentInfo.id + ''];
+                const newList = groupData.data.filter((item) => {
+                    return !myGroupIds.includes(item.id);
+                })
+                console.log(newList);
                 this.list = newList;
                 if (!newList.length) {
                     this.empty = true
@@ -183,7 +245,7 @@ export default {
         justify-content flex-end
     .item-container
         padding: 4px 16px;
-        height: 46px
+        height: 36px
         display flex
         flex-direction row
         align-items center
