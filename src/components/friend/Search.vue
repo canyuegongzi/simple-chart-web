@@ -207,9 +207,9 @@ export default {
                     item.name = item.groupName
                 })
                 console.log(groupData.data);
-                const myGroupIds = [...this.myFriendUserIds, this.currentInfo.id + ''];
+                const mygroupCodes = [...this.myFriendUserIds, this.currentInfo.id + ''];
                 const newList = groupData.data.filter((item) => {
-                    return !myGroupIds.includes(item.id);
+                    return !mygroupCodes.includes(item.id);
                 })
                 console.log(newList);
                 this.list = newList;

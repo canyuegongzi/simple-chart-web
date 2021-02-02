@@ -53,9 +53,8 @@ const mutations = {
         }
         data.message.forEach((item, index) => {
             const messageUser = state.friendList.find((t, i) => {
-                return (t.friendId + '') == (item.userId + '')
+                return t.friendId + '' == item.userId + ''
             })
-            console.log(messageUser)
             item.userInfo = {
                 ...messageUser,
                 headerIcon: 'https://img14.360buyimg.com/imagetools/jfs/t1/130112/36/5492/38449/5f1f964cEfd6f41bf/bec836b48b55bb00.jpg',
@@ -71,13 +70,13 @@ const mutations = {
     },
 
     /**
-     * 设置好友消息
+     * 设置群消息
      * @param state
      * @param data
      */
-    setGroupMessageList(state, data = { groupId: '', message: [] }) {
+    setGroupMessageList(state, data = { groupCode: '', message: [] }) {
         console.log(data);
-        if (!data.groupId) {
+        if (!data.groupCode) {
             return;
         }
         window._globalEvent.trigger('newGroupMessage', { message: data.message, type: 'GROUP' });
@@ -185,7 +184,7 @@ const actions = {
             socket.on('groupMessage', async res => {
                 console.log('on groupMessage', res);
                 console.log(res);
-                commit('setGroupMessageList', { groupId: res.groupId, message: [res] });
+                commit('setGroupMessageList', { groupCode: res.groupCode, message: [res] });
             });
             // 好友请求
             socket.on('newRequest', async res => {

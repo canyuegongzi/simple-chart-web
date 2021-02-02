@@ -104,7 +104,7 @@ export default {
                 // 群消息处理
                 for (let key in groupMessageData) {
                     const groupInfo = this.groupList.find((item) =>{
-                        return item.id + '' === key + '';
+                        return item.groupCode + '' === key + '';
                     })
                     const newMessage = {friendId: key, message: {...groupMessageData[key][0], time: dayjs(groupMessageData[key][0].createTime).format('YYYY-MM-DD HH:mm:ss')}, friendInfo: {...groupInfo, friendIcon: groupInfo.groupIcon, friendName: groupInfo.groupName}}
                     console.log(newMessage);
@@ -145,13 +145,13 @@ export default {
                     this.socket.emit('affirmMessageStatus', {
                         messageType: 'GROUP',
                         messageId: '',
-                        groupId: item.friendInfo.id,
+                        groupCode: item.friendInfo.groupCode,
                         userId: this.currentInfo.id.toString(),
                         hashId: item.message.unreadHashIds.join(','),
                         status: '1'
                     })
                 }
-                this.setTargetChartObj({type: 'GROUP', targetInfo: {...item.friendInfo, title: item.friendInfo.groupName, targetId: item.friendInfo.id} })
+                this.setTargetChartObj({type: 'GROUP', targetInfo: {...item.friendInfo, title: item.friendInfo.groupName, targetId: item.friendInfo.groupCode} })
                 this.$router.push('/groupRoom')
             }
 
@@ -238,10 +238,10 @@ export default {
         updateGroupMessageList(messageInfo) {
             let indexNum = -1;
             const currentMessage = this.homeMessageList.find((item, index) =>  {
-                if (item.friendId + '' === messageInfo.message.groupId + '') {
+                if (item.friendId + '' === messageInfo.message.groupCode + '') {
                     indexNum = index;
                 }
-                return item.friendId + '' === messageInfo.message.groupId + ''
+                return item.friendId + '' === messageInfo.message.groupCode + ''
             });
             if (currentMessage) {
                 console.log(currentMessage);
@@ -268,7 +268,7 @@ export default {
                 return
             }
             const friendInfo = this.groupList.find((item) => {
-                return item.id + '' === messageInfo.message.groupId
+                return item.id + '' === messageInfo.message.groupCode
             });
             const newTempMessageInfo = {
                 content: messageInfo.message.content,
@@ -286,7 +286,7 @@ export default {
             list.unshift({
                 friendInfo: friendInfo,
                 message: newTempMessageInfo,
-                friendId: messageInfo.message.groupId
+                friendId: messageInfo.message.groupCode
             })
             this.setHomeMessageList(list);
         }

@@ -77,7 +77,7 @@ export default {
          */
         clickItem(item) {
             console.log(item)
-            this.setTargetChartObj({type: 'GROUP', targetInfo: {...item, title: item.groupName, targetId: item.id}});
+            this.setTargetChartObj({type: 'GROUP', targetInfo: {...item, title: item.groupName, targetId: item.groupCode}});
             this.$router.push('/groupRoom');
 
         }

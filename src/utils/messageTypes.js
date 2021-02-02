@@ -11,7 +11,7 @@ class FriendMessageInfo {
 class GroupMessageInfo {
     constructor(options){
         this.type = options.type || 'TEXT';
-        this.groupId = options.groupId;
+        this.groupCode = options.groupCode;
         this.content = options.content;
         this.userId = options.userId;
         this.targetIds = options.targetIds;

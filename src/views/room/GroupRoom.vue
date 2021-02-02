@@ -55,7 +55,7 @@ export default {
             groupInfo: {
                 userList: [],
                 groupName: '',
-                groupId: '',
+                groupCode: '',
                 groupIcon: ''
             },
             memberMap: {},
@@ -113,7 +113,7 @@ export default {
         async getMessageValue(value) {
             const info = new GroupMessageInfo({
                 type: "TEXT",
-                groupId: this.targetChartObj.targetInfo.targetId,
+                groupCode: this.targetChartObj.targetInfo.targetId,
                 content: value,
                 userId: this.currentInfo.userId+'',
                 targetIds: this.groupInfo.userList.map(item => item.userId).join(',')
@@ -123,7 +123,7 @@ export default {
                 this.$Notify({type: 'waring', message: '消息内容不能为空'});
                 return;
             }
-            if(!info.userId || !info.groupId){
+            if(!info.userId || !info.groupCode){
                 this.$Notify({type: 'error', message: '系统异常，即将推出系统'});
                 this.$router.push('/login')
                 return;
@@ -143,7 +143,7 @@ export default {
         async loadGroupMessageList() {
             let list = [];
             try {
-                const res = await this.$get(IMCenterApi.groupMessageList.url, {page: this.page, pageSize: this.pageSize, userId: this.currentInfo.userId, groupId: this.targetChartObj.targetInfo.targetId}, IMCenterApi.groupMessageList.server)
+                const res = await this.$get(IMCenterApi.groupMessageList.url, {page: this.page, pageSize: this.pageSize, userId: this.currentInfo.userId, groupCode: this.targetChartObj.targetInfo.targetId}, IMCenterApi.groupMessageList.server)
                 console.log(res);
                 list = res.data.data.data
                 list.forEach((item) => {
@@ -181,7 +181,7 @@ export default {
                         const dataObj = {
                             content: item.content,
                             createTime: item.createTime,
-                            groupId: item.groupId,
+                            groupCode: item.groupCode,
                             hashId: item.hashId,
                             id: item.hashId,
                             success: true,
@@ -203,7 +203,7 @@ export default {
                 this.socket.emit('affirmMessageStatus', {
                     messageType: data.type,
                     messageId: '',
-                    groupId: this.targetChartObj.targetInfo.targetId,
+                    groupCode: this.targetChartObj.targetInfo.targetId,
                     hashId: hashIds.join(','),
                     status: '1',
                     userId: this.currentInfo.userId+''
@@ -215,11 +215,11 @@ export default {
         /**
          * 加载群信息
          */
-        async getGroupInfo(groupId) {
-            console.log(groupId);
+        async getGroupInfo(groupCode) {
+            console.log(groupCode);
             try {
                 const userMap = {}
-                const res = await $get(groupCenterApi.groupInfo.url, {id: groupId}, groupCenterApi.groupInfo.server);
+                const res = await $get(groupCenterApi.groupInfo.url, {groupCode: groupCode}, groupCenterApi.groupInfo.server);
                 res.data.userList.forEach(item => {
                    userMap[item.userId] = {
                        ...item,
